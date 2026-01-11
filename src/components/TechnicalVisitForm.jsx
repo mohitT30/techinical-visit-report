@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { Formik, Form, Field } from "formik";
-import { Table, Input, Button, Row, Col, Label } from "reactstrap";
+import { Table, Input, Button, Label, Spinner } from "reactstrap";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
@@ -14,85 +14,77 @@ const CheckboxGroup = ({ name, options }) => (
   </div>
 );
 
-const downloadPdf = async () => {
-  const input = document.getElementById("pdf-area");
+const TechnicalVisitReport = () => {
+  const [loading, setLoading] = useState(false);
 
-  // Clone the input element to avoid affecting the original DOM
-  const clonedInput = input.cloneNode(true);
+  const downloadPdf = async (values) => {
+  try {
+    setLoading(true);
 
-  // Create a virtual container with a fixed width
-  const virtualContainer = document.createElement("div");
-  virtualContainer.style.width = "1440px"; // Match your laptop screen width
-  virtualContainer.style.padding = "20px"; // Add padding to match the original
-  virtualContainer.style.position = "absolute";
-  virtualContainer.style.top = "-9999px"; // Hide it off-screen
-  virtualContainer.style.backgroundColor = "white"; // Ensure a white background
-  virtualContainer.style.fontSize = "14px"; // Ensure consistent font size
-  virtualContainer.appendChild(clonedInput);
+    const input = document.getElementById("pdf-area");
+    const clonedInput = input.cloneNode(true);
 
-  // Append the virtual container to the body
-  document.body.appendChild(virtualContainer);
+    const virtualContainer = document.createElement("div");
+    virtualContainer.style.width = "794px"; // 96 DPI A4 width in px
+    virtualContainer.style.minHeight = "1123px"; // 96 DPI A4 height in px
+    virtualContainer.style.padding = "20px";
+    virtualContainer.style.position = "absolute";
+    virtualContainer.style.top = "-9999px";
+    virtualContainer.style.backgroundColor = "white";
+    virtualContainer.style.fontSize = "14px";
 
-  // Temporarily override responsive styles
-  const style = document.createElement("style");
-  style.innerHTML = `
-      @media (max-width: 768px) {
-        #pdf-area {
-          padding: 20px !important;
-        }
-        .d-flex {
-          flex-direction: row !important; /* Force row layout */
-        }
-        table {
-          font-size: 14px !important; /* Match desktop font size */
-        }
-        table tbody tr td {
-          display: table-cell !important; /* Force table-cell layout */
-          width: auto !important;
-          text-align: left !important;
-        }
-      }
-    `;
-  virtualContainer.appendChild(style);
+    virtualContainer.appendChild(clonedInput);
+    document.body.appendChild(virtualContainer);
 
-  // Render the virtual container to a canvas
-  const canvas = await html2canvas(virtualContainer, {
-    scale: 3, // Increase scale for better resolution
-    useCORS: true, // Handle cross-origin images
-  });
-  const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+      compress: true,
+    });
 
-  // Remove the virtual container after rendering
-  document.body.removeChild(virtualContainer);
+    const pageHeightPx = 1123; // 96 DPI A4 height in px
+    const totalHeight = virtualContainer.scrollHeight;
+    let renderedHeight = 0;
+    let pageIndex = 0;
 
-  // Generate the PDF
-  const pdf = new jsPDF("p", "mm", "a4");
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const canvasWidth = canvas.width;
-  const canvasHeight = canvas.height;
-  const imgWidth = pageWidth;
-  const imgHeight = (canvasHeight * pageWidth) / canvasWidth;
+    while (renderedHeight < totalHeight) {
+      const canvas = await html2canvas(virtualContainer, {
+        scale: 1, // matches 96 DPI
+        useCORS: true,
+        y: renderedHeight,
+        height: pageHeightPx,
+        windowHeight: pageHeightPx,
+      });
 
-  let heightLeft = imgHeight;
-  let position = 0;
+      const imgData = canvas.toDataURL("image/jpeg", 1);
 
-  // Add the first page
-  pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-  heightLeft -= pageHeight;
+      const pageWidthMm = pdf.internal.pageSize.getWidth(); // 210 mm
+      const imgHeightMm = (canvas.height * pageWidthMm) / canvas.width;
 
-  // Add additional pages if content overflows
-  while (heightLeft > 0) {
-    position = heightLeft - imgHeight;
-    pdf.addPage();
-    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
+      if (pageIndex > 0) pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, 0, pageWidthMm, imgHeightMm);
+
+      renderedHeight += pageHeightPx;
+      pageIndex++;
+    }
+
+    pdf.save(`Technical_Visit_Report_${values.customerName }.pdf`);
+    document.body.removeChild(virtualContainer);
+  } finally {
+    setLoading(false);
   }
-
-  pdf.save("Technical_Visit_Report.pdf");
 };
 
-const TechnicalVisitReport = () => {
+
+  if (loading)
+    return (
+      <div className="d-flex flex-column justify-content-center align-items-center vh-100">
+        <Spinner color="primary" />
+        <span>Downloading PDF...</span>
+      </div>
+    );
+
   return (
     <Formik
       initialValues={{
@@ -196,7 +188,7 @@ const TechnicalVisitReport = () => {
           painting: { total: "", completed: "" },
         },
       }}
-      onSubmit={downloadPdf}
+      onSubmit={(values) => downloadPdf(values)}
     >
       {() => (
         <Form>
@@ -237,7 +229,7 @@ const TechnicalVisitReport = () => {
                   </tr>
                   <tr>
                     <td>Property Shown By</td>
-                    <td colSpan="3">
+                    <td colSpan="2">
                       <Field
                         as={Input}
                         name="propertyShownBy"
@@ -245,7 +237,7 @@ const TechnicalVisitReport = () => {
                       />
                     </td>
                     <td>Relationship with Applicant</td>
-                    <td>
+                    <td colSpan="4">
                       <Field
                         as={Input}
                         name="relationship"
@@ -593,7 +585,7 @@ const TechnicalVisitReport = () => {
                       <CheckboxGroup
                         name="roofType"
                         options={[
-                          "BCC Slab",
+                          "RCC Slab",
                           "ACC Sheet",
                           "Mangalore Tiles",
                           "GI Sheet",
@@ -618,6 +610,7 @@ const TechnicalVisitReport = () => {
                           "Carpet",
                           "Spartes",
                           "Shahabad Tiles (Kides)",
+                          "Tiles",
                         ]}
                       />
                     </td>
@@ -676,6 +669,7 @@ const TechnicalVisitReport = () => {
                           "Black Granite",
                           "Marble - White",
                           "Brown",
+                          "Normal",
                         ]}
                       />
                     </td>
@@ -765,7 +759,7 @@ const TechnicalVisitReport = () => {
                       </td>
 
                       {/* Distance */}
-                      <td colSpan="2"  data-label="Distance (Km)">
+                      <td colSpan="2" data-label="Distance (Km)">
                         <Field as={Input} name={`${name}Distance`} />
                       </td>
                     </tr>
@@ -960,7 +954,7 @@ const TechnicalVisitReport = () => {
 
           <div className="text-center mt-3">
             <Button color="primary" type="submit">
-              Submit & Download PDF
+              Download PDF
             </Button>
           </div>
         </Form>
