@@ -43,7 +43,7 @@ const TechnicalVisitReport = () => {
       compress: true,
     });
 
-    const pageHeightPx = 1123; // 96 DPI A4 height in px
+    const pageHeightPx = 1124; // 96 DPI A4 height in px
     const totalHeight = virtualContainer.scrollHeight;
     let renderedHeight = 0;
     let pageIndex = 0;
@@ -947,6 +947,13 @@ const TechnicalVisitReport = () => {
                       </td>
                     </tr>
                   ))}
+
+                  <tr>
+                    <td>Remark</td>
+                    <td colSpan="5">
+                      <Field as={Input} type="textarea" name="remark" />
+                    </td>
+                  </tr>
                 </tbody>
               </Table>
             </div>
